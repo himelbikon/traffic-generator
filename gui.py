@@ -1,249 +1,304 @@
 import sys
+import time
+import random
+from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QFileDialog, QTableWidget, 
-                             QTableWidgetItem, QLabel, QHeaderView, QMessageBox, QProgressBar)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QColor
+                             QHBoxLayout, QPushButton, QLabel, QLineEdit, 
+                             QFileDialog, QTableWidget, QTableWidgetItem, 
+                             QSpinBox, QMessageBox)
+from PyQt6.QtCore import QThread, pyqtSignal, Qt
 import pandas as pd
-from automation import visit_website
+import db
+from visit_automation import visit_website
 
 
-class ProcessorThread(QThread):
-    """Thread for processing CSV rows without blocking the UI"""
-    row_processed = pyqtSignal(int)  # Signal emitted when a row is processed
-    processing_complete = pyqtSignal()  # Signal when all rows are done
+class VisitWorker(QThread):
+    """Worker thread to handle URL visits without blocking the GUI"""
+    progress_update = pyqtSignal(str, int)  # url, visit_count
+    status_update = pyqtSignal(str)
+    finished = pyqtSignal()
     
-    def __init__(self, csv_data, process_function):
+    def __init__(self, csv_path, visits_per_day):
         super().__init__()
-        self.csv_data = csv_data
-        self.process_function = process_function
+        self.csv_path = csv_path
+        self.visits_per_day = visits_per_day
         self.is_running = True
+        self.is_paused = False
         
     def run(self):
-        """Process each row of the CSV data"""
-        for index, row in self.csv_data.iterrows():
+        """Main worker loop"""
+        while self.is_running:
+            # Check if paused
+            while self.is_paused and self.is_running:
+                time.sleep(0.1)
+            
             if not self.is_running:
                 break
                 
-            # Call your automation script here
-            # Pass the row data to your processing function
-            self.process_function(row)
+            all_sites_visited = self.visit_all_sites()
             
-            # Emit signal that this row is processed
-            self.row_processed.emit(row.name)
+            if all_sites_visited:
+                self.status_update.emit("All sites have enough visits for today")
+                break
+            
+            # Calculate sleep time
+            sleep_time = 10 * 3600 / max(self.visits_per_day - 2, 2)
+            doped_sleep_time = sleep_time + random.randint(-int(sleep_time * 0.2), int(sleep_time * 0.2))
+            
+            hour = int(doped_sleep_time // 3600)
+            minute = int((doped_sleep_time % 3600) // 60)
+            
+            self.status_update.emit(f"Sleeping for {hour}h {minute}m")
+            
+            # Sleep in small intervals to check for pause/stop
+            sleep_intervals = int(doped_sleep_time / 0.5)
+            for _ in range(sleep_intervals):
+                if not self.is_running:
+                    break
+                while self.is_paused and self.is_running:
+                    time.sleep(0.1)
+                time.sleep(0.5)
         
-        self.processing_complete.emit()
+        self.finished.emit()
+    
+    def visit_all_sites(self):
+        """Visit all sites from CSV"""
+        try:
+            df = pd.read_csv(self.csv_path)
+            all_site_visited = True
+            
+            for index, row in df.iterrows():
+                if not self.is_running:
+                    break
+                    
+                while self.is_paused and self.is_running:
+                    time.sleep(0.1)
+                
+                url = row['URL']
+                
+                if self.had_enough_visits(url):
+                    continue
+                
+                all_site_visited = False
+                
+                # Try to visit (with retry logic)
+                for attempt in range(3):
+                    try:
+                        self.status_update.emit(f"Visiting: {url}")
+                        # This visit website function will automatically stores visited url. Do not need to store here.
+                        visit_website(url)
+                        # db.add_visit(url)
+                        
+                        # Update progress
+                        visit_count = db.count_visits_today(url)
+                        self.progress_update.emit(url, visit_count)
+                        break
+                    except Exception as e:
+                        self.status_update.emit(f"Error visiting {url}: {str(e)}")
+                        if attempt == 2:
+                            self.status_update.emit(f"Failed to visit {url} after 3 attempts")
+            
+            return all_site_visited
+        except Exception as e:
+            self.status_update.emit(f"Error reading CSV: {str(e)}")
+            return True
+    
+    def had_enough_visits(self, url):
+        """Check if URL has enough visits today"""
+        visits = db.count_visits_today(url)
+        if visits >= self.visits_per_day:
+            self.status_update.emit(f"Already had enough visits ({visits}) for {url}")
+            return True
+        return False
     
     def stop(self):
-        """Stop the processing"""
+        """Stop the worker"""
         self.is_running = False
+    
+    def pause(self):
+        """Pause the worker"""
+        self.is_paused = True
+    
+    def resume(self):
+        """Resume the worker"""
+        self.is_paused = False
 
 
-class CSVProcessorApp(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.csv_data = None
-        self.last_processed_row = 0
-        self.total_rows = 0
-        self.processor_thread = None
+        self.setWindowTitle("URL Visit Automation")
+        self.setMinimumSize(800, 600)
+        
+        self.csv_path = ""
+        self.worker = None
+        
         self.init_ui()
         
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle("CSV Processor - Selenium Automation")
-        self.setGeometry(100, 100, 900, 600)
-        
-        # Central widget and main layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
         
-        # File selection section
-        file_layout = QHBoxLayout()
-        self.file_label = QLabel("No file selected")
-        self.browse_btn = QPushButton("Browse CSV")
-        self.browse_btn.clicked.connect(self.browse_file)
-        file_layout.addWidget(QLabel("CSV File:"))
-        file_layout.addWidget(self.file_label)
-        file_layout.addWidget(self.browse_btn)
-        file_layout.addStretch()
-        main_layout.addLayout(file_layout)
+        layout = QVBoxLayout()
+        central_widget.setLayout(layout)
         
-        # Table for CSV data
-        self.table = QTableWidget()
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        main_layout.addWidget(self.table)
+        # CSV Upload Section
+        csv_layout = QHBoxLayout()
+        csv_layout.addWidget(QLabel("CSV File:"))
+        self.csv_label = QLabel("No file selected")
+        csv_layout.addWidget(self.csv_label)
+        self.csv_btn = QPushButton("Browse")
+        self.csv_btn.clicked.connect(self.browse_csv)
+        csv_layout.addWidget(self.csv_btn)
+        layout.addLayout(csv_layout)
         
-        # Control buttons
+        # Visits Per Day Section
+        visits_layout = QHBoxLayout()
+        visits_layout.addWidget(QLabel("Visits Per Day:"))
+        self.visits_spinbox = QSpinBox()
+        self.visits_spinbox.setMinimum(1)
+        self.visits_spinbox.setMaximum(1000)
+        self.visits_spinbox.setValue(20)
+        visits_layout.addWidget(self.visits_spinbox)
+        visits_layout.addStretch()
+        layout.addLayout(visits_layout)
+        
+        # Control Buttons
         button_layout = QHBoxLayout()
-        self.start_btn = QPushButton("Start Processing")
-        self.start_btn.clicked.connect(self.start_processing)
-        self.start_btn.setEnabled(False)
-        
-        self.stop_btn = QPushButton("Stop")
-        self.stop_btn.clicked.connect(self.stop_processing)
-        self.stop_btn.setEnabled(False)
-        
-        self.reset_btn = QPushButton("Reset")
-        self.reset_btn.clicked.connect(self.reset_status)
-        self.reset_btn.setEnabled(False)
-        
+        self.start_btn = QPushButton("Start")
+        self.start_btn.clicked.connect(self.start_automation)
         button_layout.addWidget(self.start_btn)
-        button_layout.addWidget(self.stop_btn)
-        button_layout.addWidget(self.reset_btn)
+        
+        self.pause_btn = QPushButton("Pause")
+        self.pause_btn.clicked.connect(self.pause_automation)
+        self.pause_btn.setEnabled(False)
+        button_layout.addWidget(self.pause_btn)
+        
+        self.continue_btn = QPushButton("Continue")
+        self.continue_btn.clicked.connect(self.continue_automation)
+        self.continue_btn.setEnabled(False)
+        button_layout.addWidget(self.continue_btn)
+        
         button_layout.addStretch()
-        main_layout.addLayout(button_layout)
+        layout.addLayout(button_layout)
         
-        # Status bar
-        self.progress_bar = QProgressBar()
-        self.statusBar().addPermanentWidget(self.progress_bar)
-        self.progress_bar.hide() # Hide initially
-        self.statusBar().showMessage("Ready")
+        # Status Label
+        self.status_label = QLabel("Ready")
+        layout.addWidget(self.status_label)
         
-    def browse_file(self):
-        """Open file dialog to select CSV file"""
+        # Visit Count Table
+        layout.addWidget(QLabel("Today's Visit Counts:"))
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["URL", "Visits Today"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setColumnWidth(0, 500)
+        layout.addWidget(self.table)
+        
+    def browse_csv(self):
+        """Open file dialog to select CSV"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select CSV File", "", "CSV Files (*.csv)"
+            self, "Select CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
-        
         if file_path:
-            try:
-                self.load_csv(file_path)
-                self.file_label.setText(file_path.split('/')[-1])
-                self.start_btn.setEnabled(True)
-                self.reset_btn.setEnabled(True)
-                self.statusBar().showMessage("CSV loaded successfully")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to load CSV: {str(e)}")
+            self.csv_path = file_path
+            self.csv_label.setText(Path(file_path).name)
+            self.load_initial_data()
+    
+    def load_initial_data(self):
+        """Load initial visit counts from db.json"""
+        try:
+            # Load CSV
+            df = pd.read_csv(self.csv_path)
+            
+            # Update table with current visit counts
+            self.table.setRowCount(len(df))
+            for i, row in df.iterrows():
+                url = row['URL']
+                self.table.setItem(i, 0, QTableWidgetItem(url))
+                count = db.count_visits_today(url)
+                self.table.setItem(i, 1, QTableWidgetItem(str(count)))
                 
-    def load_csv(self, file_path):
-        """Load and display CSV data in table"""
-        self.csv_data = pd.read_csv(file_path)
-        
-        self.total_rows = len(self.csv_data)
-        self.progress_bar.setMaximum(self.total_rows)
-        self.progress_bar.setValue(0)
-        self.last_processed_row = 0
-        
-        # Set up table
-        self.table.setRowCount(len(self.csv_data))
-        self.table.setColumnCount(len(self.csv_data.columns) + 1)  # +1 for status column
-        
-        # Set headers
-        headers = ["Status"] + list(self.csv_data.columns)
-        self.table.setHorizontalHeaderLabels(headers)
-        
-        # Populate table with data
-        for row_idx in range(len(self.csv_data)):
-            # Status indicator column
-            status_item = QTableWidgetItem("●")
-            status_item.setForeground(QColor(255, 0, 0))  # Red
-            status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row_idx, 0, status_item)
-            
-            # Data columns
-            for col_idx, col_name in enumerate(self.csv_data.columns):
-                value = str(self.csv_data.iloc[row_idx, col_idx])
-                item = QTableWidgetItem(value)
-                self.table.setItem(row_idx, col_idx + 1, item)
-        
-        # Adjust column widths
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        
-    def start_processing(self):
-        """Start processing CSV rows"""
-        if self.csv_data is None:
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load data: {str(e)}")
+    
+    def start_automation(self):
+        """Start the automation process"""
+        if not self.csv_path:
+            QMessageBox.warning(self, "Warning", "Please select a CSV file first")
             return
-            
+        
         self.start_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.browse_btn.setEnabled(False)
-        self.start_btn.setText("Continue")
-        self.progress_bar.show()
-        self.statusBar().showMessage("Processing...")
+        self.pause_btn.setEnabled(True)
+        self.csv_btn.setEnabled(False)
+        self.visits_spinbox.setEnabled(False)
         
-        # Create and start processing thread
-        remaining_data = self.csv_data.iloc[self.last_processed_row:]
-        self.processor_thread = ProcessorThread(remaining_data, self.process_row)
-        self.processor_thread.row_processed.connect(self.update_row_status)
-        self.processor_thread.processing_complete.connect(self.processing_finished)
-        self.processor_thread.start()
+        # Create and start worker
+        self.worker = VisitWorker(
+            self.csv_path, 
+            self.visits_spinbox.value()
+        )
+        self.worker.progress_update.connect(self.update_table_row)
+        self.worker.status_update.connect(self.update_status)
+        self.worker.finished.connect(self.automation_finished)
+        self.worker.start()
         
-    def stop_processing(self):
-        """Stop the processing"""
-        if self.processor_thread:
-            self.processor_thread.stop()
-            self.stop_btn.setEnabled(False)
-            self.start_btn.setEnabled(True)
-            self.browse_btn.setEnabled(True)
-            self.start_btn.setText("Continue")
-            self.statusBar().showMessage("Processing stopped")
-            
-    def process_row(self, row_data):
-        """
-        This is where you integrate your automation script.
-        Replace this function with your actual processing logic.
-        
-        Args:
-            row_data: A pandas Series containing the row data
-        """
-        
-        visit_website(row_data['URL'])
-
-        # import time
-        # time.sleep(1)
-        
-    def update_row_status(self, row_index):
-        """Update the status indicator for a processed row"""
-        status_item = self.table.item(row_index, 0)
-        status_item.setForeground(QColor(0, 255, 0))  # Green
-
-        # Update progress bar
-        self.progress_bar.setValue(row_index + 1)
-        percentage = int(((row_index + 1) / self.total_rows) * 100)
-        self.statusBar().showMessage(f"Processing... {percentage}%")
-
-        self.last_processed_row = row_index + 1
-        
-    def processing_finished(self):
-        """Called when all rows are processed"""
-        self.progress_bar.hide()
+        self.status_label.setText("Automation running...")
+    
+    def pause_automation(self):
+        """Pause the automation"""
+        if self.worker:
+            self.worker.pause()
+            self.pause_btn.setEnabled(False)
+            self.continue_btn.setEnabled(True)
+            self.status_label.setText("Paused")
+    
+    def continue_automation(self):
+        """Continue the automation"""
+        if self.worker:
+            self.worker.resume()
+            self.pause_btn.setEnabled(True)
+            self.continue_btn.setEnabled(False)
+            self.status_label.setText("Automation running...")
+    
+    def update_table_row(self, url, count):
+        """Update a specific row in the table"""
+        for i in range(self.table.rowCount()):
+            if self.table.item(i, 0).text() == url:
+                self.table.setItem(i, 1, QTableWidgetItem(str(count)))
+                break
+    
+    def update_status(self, message):
+        """Update status label"""
+        self.status_label.setText(message)
+    
+    def automation_finished(self):
+        """Handle automation completion"""
         self.start_btn.setEnabled(True)
-        self.stop_btn.setEnabled(False)
-        self.browse_btn.setEnabled(True)
-
-        if self.processor_thread.is_running:
-            proccess_message = f"All rows have been processed!"
-            self.statusBar().showMessage("Processing complete!")
-            self.last_processed_row = 0
-            self.start_btn.setText("Start Processing")
-        else:
-            proccess_message = f"Processing stopped!"
-            self.statusBar().showMessage("Processing stopped!")
-            self.start_btn.setText("Continue")
-
-        QMessageBox.information(self, "Complete", proccess_message)
+        self.pause_btn.setEnabled(False)
+        self.continue_btn.setEnabled(False)
+        self.csv_btn.setEnabled(True)
+        self.visits_spinbox.setEnabled(True)
+        self.status_label.setText("Automation completed")
         
-    def reset_status(self):
-        """Reset all status indicators to red"""
-        for row_idx in range(self.table.rowCount()):
-            status_item = self.table.item(row_idx, 0)
-            status_item.setForeground(QColor(255, 0, 0))  # Red
-        self.statusBar().showMessage("Status reset")
-        self.last_processed_row = 0
-        self.start_btn.setText("Start Processing")
-        self.progress_bar.setValue(0)
-        self.progress_bar.hide()
+        QMessageBox.information(self, "Complete", "Automation has finished")
+    
+    def closeEvent(self, event):
+        """Handle window close event"""
+        if self.worker and self.worker.isRunning():
+            reply = QMessageBox.question(
+                self, 'Confirm Exit',
+                'Automation is still running. Are you sure you want to exit?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.worker.stop()
+                self.worker.wait()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
 
-
-def render():
-    app = QApplication(sys.argv)
-    window = CSVProcessorApp()
-    window.show()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    render()
