@@ -4,3 +4,4 @@ main.spec
 dist
 build
 dev
+db.json

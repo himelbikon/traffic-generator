@@ -8,6 +8,7 @@ from selenium.webdriver import ActionChains
 import time
 import random
 import pandas as pd
+import db
 
 # ============= PROXY CONFIGURATION =============
 # Add your proxies here in one of these formats:
@@ -291,6 +292,8 @@ def visit_website(url):
             if random.random() < 0.3:
                 human_like_delay(1, 2)
                 driver.execute_script("window.scrollTo(0, 0);")
+
+            
         except Exception as e:
             print(f"⚠️  Scrolling skipped: {str(e)}")
         
@@ -299,6 +302,8 @@ def visit_website(url):
         
         # Keep browser open for inspection (remove in production)
         # input("\n⏸️  Press Enter to close the browser...")
+
+        db.add_visit(url)
         
     except Exception as e:
         print(f"❌ Error occurred: {str(e)}")
