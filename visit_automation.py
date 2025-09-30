@@ -1,7 +1,8 @@
+from selenium.common.exceptions import MoveTargetOutOfBoundsException, WebDriverException
 import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+# from selenium.webdriver.common.by import By
+# from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.support import expected_conditions as EC
 from selenium_stealth import stealth
 from fake_useragent import UserAgent
 from selenium.webdriver import ActionChains
@@ -15,10 +16,10 @@ import db
 PROXIES = [
     # Format 1: IP:PORT
     # '123.45.67.89:8080',
-    
+
     # Format 2: IP:PORT:USERNAME:PASSWORD
     # '123.45.67.89:8080:myuser:mypass',
-    
+
     # Format 3: Full URL
     # 'http://myuser:mypass@123.45.67.89:8080',
     # 'socks5://myuser:mypass@123.45.67.89:1080',
@@ -59,12 +60,13 @@ WEBGL_RENDERERS = [
     "ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0)",
 ]
 
+
 def parse_proxy(proxy_string):
     """Parse proxy string into proper format"""
     if '://' in proxy_string:
         # Already in full format
         return proxy_string
-    
+
     parts = proxy_string.split(':')
     if len(parts) == 2:
         # Format: IP:PORT
@@ -76,35 +78,36 @@ def parse_proxy(proxy_string):
     else:
         raise ValueError(f"Invalid proxy format: {proxy_string}")
 
+
 def create_undetectable_driver():
     """Create an undetected Chrome driver with maximum stealth"""
-    
+
     # Initialize fake user agent
     ua = UserAgent()
     user_agent = ua.random
-    
+
     # Randomize screen resolution
     width, height = random.choice(SCREEN_RESOLUTIONS)
-    
+
     # Randomize language
     languages = random.choice(LANGUAGES)
-    
+
     # Randomize WebGL fingerprint
     webgl_vendor = random.choice(WEBGL_VENDORS)
     webgl_renderer = random.choice(WEBGL_RENDERERS)
-    
+
     # Create Chrome options
     options = uc.ChromeOptions()
-    
+
     # Basic options
     options.add_argument(f'--window-size={width},{height}')
     options.add_argument(f'--lang={languages[0]}')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    
+
     # Set user agent
     options.add_argument(f'--user-agent={user_agent}')
-    
+
     # ============= PROXY SETUP =============
     selected_proxy = None
     if USE_PROXY and PROXIES:
@@ -112,35 +115,35 @@ def create_undetectable_driver():
         proxy_url = parse_proxy(selected_proxy)
         options.add_argument(f'--proxy-server={proxy_url}')
         print(f"🔒 Using Proxy: {selected_proxy.split(':')[0]}:****")
-    
+
     # Set language preferences
     prefs = {
         'intl.accept_languages': ','.join(languages),
         'profile.default_content_setting_values.notifications': 2,  # Block notifications
     }
     options.add_experimental_option('prefs', prefs)
-    
+
     print(f"✓ User Agent: {user_agent[:70]}...")
     print(f"✓ Resolution: {width}x{height}")
     print(f"✓ Language: {languages[0]}")
     print(f"✓ WebGL Vendor: {webgl_vendor}")
-    
+
     # Initialize undetected Chrome driver
     driver = uc.Chrome(options=options, version_main=None)
 
     driver.set_window_size(width, height)
     driver.set_window_position(0, 0)
-    
+
     # Apply selenium-stealth for additional masking
     stealth(driver,
-        languages=languages,
-        vendor=webgl_vendor,
-        platform=random.choice(['Win32', 'MacIntel', 'Linux x86_64']),
-        webgl_vendor=webgl_vendor,
-        renderer=webgl_renderer,
-        fix_hairline=True,
-    )
-    
+            languages=languages,
+            vendor=webgl_vendor,
+            platform=random.choice(['Win32', 'MacIntel', 'Linux x86_64']),
+            webgl_vendor=webgl_vendor,
+            renderer=webgl_renderer,
+            fix_hairline=True,
+            )
+
     # Additional fingerprint randomization
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         'source': f'''
@@ -173,18 +176,16 @@ def create_undetectable_driver():
             }};
         '''
     })
-    
+
     return driver
+
 
 def human_like_delay(min_seconds=1, max_seconds=3):
     """Add random delays to mimic human behavior"""
     time.sleep(random.uniform(min_seconds, max_seconds))
 
-import random, time
-from selenium.webdriver import ActionChains
-from selenium.common.exceptions import MoveTargetOutOfBoundsException, WebDriverException
 
-def random_mouse_movements(driver, max_size=500, steps_range=(5,50), pause_range=(0.02, 0.1)):
+def random_mouse_movements(driver, max_size=500, steps_range=(5, 50), pause_range=(0.02, 0.1)):
     """
     Move the mouse inside a safe rectangular area within the visible viewport.
     - max_size: desired max dimension of safe area (kept <= viewport size)
@@ -193,7 +194,8 @@ def random_mouse_movements(driver, max_size=500, steps_range=(5,50), pause_range
     body = driver.find_element("tag name", "body")
 
     # Prefer accurate viewport values from JS (window.innerWidth/innerHeight)
-    vw, vh = driver.execute_script("return [window.innerWidth, window.innerHeight];")
+    vw, vh = driver.execute_script(
+        "return [window.innerWidth, window.innerHeight];")
     # Ensure integer
     vw, vh = int(vw), int(vh)
 
@@ -218,7 +220,8 @@ def random_mouse_movements(driver, max_size=500, steps_range=(5,50), pause_range
 
     steps = random.randint(*steps_range)
 
-    print(f"Safe-area move from ({x1},{y1}) to ({x2},{y2}) in {steps} steps inside viewport {vw}x{vh} (safe box at {box_x0},{box_y0} size {safe_w}x{safe_h})")
+    print(
+        f"Safe-area move from ({x1},{y1}) to ({x2},{y2}) in {steps} steps inside viewport {vw}x{vh} (safe box at {box_x0},{box_y0} size {safe_w}x{safe_h})")
 
     actions = ActionChains(driver)
 
@@ -249,65 +252,64 @@ def random_mouse_movements(driver, max_size=500, steps_range=(5,50), pause_range
         time.sleep(random.uniform(*pause_range))
 
 
-
-
 def visit_website(url):
     """Visit a website with maximum stealth mode enabled"""
+    print(f"\n🌐 Navigating to {url}...")
     random_scroll_count = random.randint(5, 15)
-    
+
     driver = create_undetectable_driver()
-    
+
     try:
         print(f"\n🌐 Navigating to {url}...")
         driver.get(url)
-        
+
         # Random delay after loading
         human_like_delay(2, 5)
-        
+
         # Simulate mouse movements
         random_mouse_movements(driver)
-        
+
         # Simulate human-like scrolling with variations
         try:
-            scroll_height = driver.execute_script("return document.body.scrollHeight")
+            scroll_height = driver.execute_script(
+                "return document.body.scrollHeight")
             current_position = 0
             scroll_count = 0
-            
+
             while current_position < scroll_height and scroll_count < random_scroll_count:
                 # Random scroll distance and direction
                 scroll_by = random.randint(100, 400)
-                
+
                 # Sometimes scroll up a bit (humans do this)
                 if random.random() < 0.2 and current_position > 300:
                     scroll_by = -random.randint(50, 150)
-                
+
                 driver.execute_script(f"window.scrollBy(0, {scroll_by});")
                 current_position += scroll_by
                 scroll_count += 1
-                
+
                 # Variable scroll speed
                 human_like_delay(0.3, 2.0)
-            
+
             # Scroll back to top sometimes
             if random.random() < 0.3:
                 human_like_delay(1, 2)
                 driver.execute_script("window.scrollTo(0, 0);")
 
-            
         except Exception as e:
             print(f"⚠️  Scrolling skipped: {str(e)}")
-        
+
         print("✓ Page loaded successfully!")
         print(f"✓ Page title: {driver.title}")
-        
+
         # Keep browser open for inspection (remove in production)
         # input("\n⏸️  Press Enter to close the browser...")
 
         db.add_visit(url)
-        
+
     except Exception as e:
         print(f"❌ Error occurred: {str(e)}")
-    
+
     finally:
         try:
             driver.quit()
@@ -315,28 +317,28 @@ def visit_website(url):
         except Exception as e:
             print(f"❌ Error occurred while closing browser: {str(e)}")
 
+
 def visit_multiple_sites(urls, delay_between_visits=(30, 120)):
     """Visit multiple sites with random delays between them"""
     for i, url in enumerate(urls, 1):
         print(f"\n{'='*60}")
         print(f"Visit {i}/{len(urls)}")
         print(f"{'='*60}")
-        
+
         try:
             visit_website(url)
         except Exception as e:
             print(f"❌ Error occurred: {str(e)}")
-        
+
         if i < len(urls):
             wait_time = random.randint(*delay_between_visits)
             print(f"\n⏳ Waiting {wait_time} seconds before next visit...")
             time.sleep(wait_time)
 
+
 if __name__ == "__main__":
     print("🚀 Starting Ultra-Stealth Browser Automation")
     print("=" * 60)
-    
+
     df = pd.read_csv("demo_scraping_sites.csv")
     visit_multiple_sites(df['URL'].tolist())
-    
-    
