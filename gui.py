@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
 import pandas as pd
+from automation import visit_website
 
 
 class ProcessorThread(QThread):
@@ -138,7 +139,8 @@ class CSVProcessorApp(QMainWindow):
         
         # Adjust column widths
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         
     def start_processing(self):
         """Start processing CSV rows"""
@@ -171,17 +173,11 @@ class CSVProcessorApp(QMainWindow):
         Args:
             row_data: A pandas Series containing the row data
         """
-        # Example: Import your automation script
-        # from your_automation_script import process_data
-        # process_data(row_data)
         
-        # For demonstration, we'll just simulate processing
-        import time
-        time.sleep(1)  # Simulate work being done
-        
-        # Access row data like this:
-        # value = row_data['column_name']
-        # or row_data.iloc[0] for first column
+        visit_website(row_data['URL'])
+
+        # import time
+        # time.sleep(1)
         
     def update_row_status(self, row_index):
         """Update the status indicator for a processed row"""
@@ -194,7 +190,13 @@ class CSVProcessorApp(QMainWindow):
         self.stop_btn.setEnabled(False)
         self.browse_btn.setEnabled(True)
         self.statusBar().showMessage("Processing complete!")
-        QMessageBox.information(self, "Complete", "All rows have been processed!")
+
+        if self.processor_thread.is_running:
+            proccess_message = f"All rows have been processed!"
+        else:
+            proccess_message = f"Processing stopped!"
+
+        QMessageBox.information(self, "Complete", proccess_message)
         
     def reset_status(self):
         """Reset all status indicators to red"""
