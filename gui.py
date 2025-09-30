@@ -30,7 +30,7 @@ class ProcessorThread(QThread):
             self.process_function(row)
             
             # Emit signal that this row is processed
-            self.row_processed.emit(index)
+            self.row_processed.emit(row.name)
         
         self.processing_complete.emit()
     
@@ -43,6 +43,8 @@ class CSVProcessorApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.csv_data = None
+        self.last_processed_row = 0
+        self.total_rows = 0
         self.processor_thread = None
         self.init_ui()
         
@@ -118,6 +120,11 @@ class CSVProcessorApp(QMainWindow):
         """Load and display CSV data in table"""
         self.csv_data = pd.read_csv(file_path)
         
+        self.total_rows = len(self.csv_data)
+        self.progress_bar.setMaximum(self.total_rows)
+        self.progress_bar.setValue(0)
+        self.last_processed_row = 0
+        
         # Set up table
         self.table.setRowCount(len(self.csv_data))
         self.table.setColumnCount(len(self.csv_data.columns) + 1)  # +1 for status column
@@ -150,18 +157,16 @@ class CSVProcessorApp(QMainWindow):
         if self.csv_data is None:
             return
             
-        self.total_rows = len(self.csv_data)
-        self.progress_bar.setMaximum(self.total_rows)
-        self.progress_bar.setValue(0)
-        self.progress_bar.show()
-
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.browse_btn.setEnabled(False)
+        self.start_btn.setText("Continue")
+        self.progress_bar.show()
         self.statusBar().showMessage("Processing...")
         
         # Create and start processing thread
-        self.processor_thread = ProcessorThread(self.csv_data, self.process_row)
+        remaining_data = self.csv_data.iloc[self.last_processed_row:]
+        self.processor_thread = ProcessorThread(remaining_data, self.process_row)
         self.processor_thread.row_processed.connect(self.update_row_status)
         self.processor_thread.processing_complete.connect(self.processing_finished)
         self.processor_thread.start()
@@ -171,6 +176,9 @@ class CSVProcessorApp(QMainWindow):
         if self.processor_thread:
             self.processor_thread.stop()
             self.stop_btn.setEnabled(False)
+            self.start_btn.setEnabled(True)
+            self.browse_btn.setEnabled(True)
+            self.start_btn.setText("Continue")
             self.statusBar().showMessage("Processing stopped")
             
     def process_row(self, row_data):
@@ -196,18 +204,25 @@ class CSVProcessorApp(QMainWindow):
         self.progress_bar.setValue(row_index + 1)
         percentage = int(((row_index + 1) / self.total_rows) * 100)
         self.statusBar().showMessage(f"Processing... {percentage}%")
+
+        self.last_processed_row = row_index + 1
         
     def processing_finished(self):
         """Called when all rows are processed"""
+        self.progress_bar.hide()
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.browse_btn.setEnabled(True)
-        self.statusBar().showMessage("Processing complete!")
 
         if self.processor_thread.is_running:
             proccess_message = f"All rows have been processed!"
+            self.statusBar().showMessage("Processing complete!")
+            self.last_processed_row = 0
+            self.start_btn.setText("Start Processing")
         else:
             proccess_message = f"Processing stopped!"
+            self.statusBar().showMessage("Processing stopped!")
+            self.start_btn.setText("Continue")
 
         QMessageBox.information(self, "Complete", proccess_message)
         
@@ -217,6 +232,10 @@ class CSVProcessorApp(QMainWindow):
             status_item = self.table.item(row_idx, 0)
             status_item.setForeground(QColor(255, 0, 0))  # Red
         self.statusBar().showMessage("Status reset")
+        self.last_processed_row = 0
+        self.start_btn.setText("Start Processing")
+        self.progress_bar.setValue(0)
+        self.progress_bar.hide()
 
 
 def main():
