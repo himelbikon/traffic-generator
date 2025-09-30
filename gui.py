@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QFileDialog, QTableWidget, 
-                             QTableWidgetItem, QLabel, QHeaderView, QMessageBox)
+                             QTableWidgetItem, QLabel, QHeaderView, QMessageBox, QProgressBar)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
 import pandas as pd
@@ -93,6 +93,9 @@ class CSVProcessorApp(QMainWindow):
         main_layout.addLayout(button_layout)
         
         # Status bar
+        self.progress_bar = QProgressBar()
+        self.statusBar().addPermanentWidget(self.progress_bar)
+        self.progress_bar.hide() # Hide initially
         self.statusBar().showMessage("Ready")
         
     def browse_file(self):
@@ -147,6 +150,11 @@ class CSVProcessorApp(QMainWindow):
         if self.csv_data is None:
             return
             
+        self.total_rows = len(self.csv_data)
+        self.progress_bar.setMaximum(self.total_rows)
+        self.progress_bar.setValue(0)
+        self.progress_bar.show()
+
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.browse_btn.setEnabled(False)
@@ -174,15 +182,20 @@ class CSVProcessorApp(QMainWindow):
             row_data: A pandas Series containing the row data
         """
         
-        visit_website(row_data['URL'])
+        # visit_website(row_data['URL'])
 
-        # import time
-        # time.sleep(1)
+        import time
+        time.sleep(1)
         
     def update_row_status(self, row_index):
         """Update the status indicator for a processed row"""
         status_item = self.table.item(row_index, 0)
         status_item.setForeground(QColor(0, 255, 0))  # Green
+
+        # Update progress bar
+        self.progress_bar.setValue(row_index + 1)
+        percentage = int(((row_index + 1) / self.total_rows) * 100)
+        self.statusBar().showMessage(f"Processing... {percentage}%")
         
     def processing_finished(self):
         """Called when all rows are processed"""
