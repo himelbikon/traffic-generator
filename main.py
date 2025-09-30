@@ -3,7 +3,7 @@ import pandas as pd
 import db
 
 
-VISIT_PER_DAY = 6
+VISIT_PER_DAY = 20
 
 
 def had_enough_visits(url):
@@ -25,10 +25,12 @@ def visit_all_sites():
 
         all_site_visited = False
 
-        try:
-            visit_website(row['URL'])
-        except Exception as e:
-            print(f"Error occurred while visiting {row['URL']}: {str(e)}")
+        for _ in range(3):
+            try:
+                visit_website(row['URL'])
+                break
+            except Exception as e:
+                print(f"Error occurred while visiting {row['URL']}: {str(e)}")
 
     return all_site_visited
 

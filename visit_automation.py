@@ -1,6 +1,6 @@
 from selenium.common.exceptions import MoveTargetOutOfBoundsException, WebDriverException
 import undetected_chromedriver as uc
-# from selenium.webdriver.common.by import By
+from selenium.webdriver.common.by import By
 # from selenium.webdriver.support.ui import WebDriverWait
 # from selenium.webdriver.support import expected_conditions as EC
 from selenium_stealth import stealth
@@ -252,11 +252,66 @@ def random_mouse_movements(driver, max_size=500, steps_range=(5, 50), pause_rang
         time.sleep(random.uniform(*pause_range))
 
 
+def random_link_click(driver):
+    for i in range(3):
+        print(f"Attempt {i + 1} to click a link...")
+        try:
+            anchors = driver.find_elements(By.TAG_NAME, "a")
+
+            good_links = [a for a in anchors if a.get_attribute("href") and "javascript" not in a.get_attribute("href")]
+
+            if good_links:
+                link = random.choice(good_links)
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'});", link)
+                time.sleep(random.uniform(0.5, 1.5))  # human-like pause
+                link.click()
+                print("✓ Link clicked successfully!")
+                human_like_delay(2, 5)
+                break
+            else:
+                print("No good links found")
+        except Exception as e:
+            print(f"⚠️  Link click skipped: {str(e)}")
+
+
+def random_scroll(driver):
+    random_scroll_count = random.randint(5, 15)
+    
+    # Simulate human-like scrolling with variations
+    try:
+        scroll_height = driver.execute_script(
+            "return document.body.scrollHeight")
+        current_position = 0
+        scroll_count = 0
+
+        while current_position < scroll_height and scroll_count < random_scroll_count:
+            # Random scroll distance and direction
+            scroll_by = random.randint(100, 400)
+
+            # Sometimes scroll up a bit (humans do this)
+            if random.random() < 0.2 and current_position > 300:
+                scroll_by = -random.randint(50, 150)
+
+            driver.execute_script(f"window.scrollBy(0, {scroll_by});")
+            current_position += scroll_by
+            scroll_count += 1
+
+            # Variable scroll speed
+            human_like_delay(0.3, 2.0)
+
+        # Scroll back to top sometimes
+        if random.random() < 0.3:
+            human_like_delay(1, 2)
+            driver.execute_script("window.scrollTo(0, 0);")
+
+    except Exception as e:
+        print(f"⚠️  Scrolling skipped: {str(e)}")
+
+
 def visit_website(url):
     """Visit a website with maximum stealth mode enabled"""
-    print(f"\n🌐 Navigating to {url}...")
-    random_scroll_count = random.randint(5, 15)
 
+    print(f"\n🌐 Navigating to {url}...")
     driver = create_undetectable_driver()
 
     try:
@@ -269,35 +324,12 @@ def visit_website(url):
         # Simulate mouse movements
         random_mouse_movements(driver)
 
-        # Simulate human-like scrolling with variations
-        try:
-            scroll_height = driver.execute_script(
-                "return document.body.scrollHeight")
-            current_position = 0
-            scroll_count = 0
+        
+        random_scroll(driver)
+        random_link_click(driver)
 
-            while current_position < scroll_height and scroll_count < random_scroll_count:
-                # Random scroll distance and direction
-                scroll_by = random.randint(100, 400)
-
-                # Sometimes scroll up a bit (humans do this)
-                if random.random() < 0.2 and current_position > 300:
-                    scroll_by = -random.randint(50, 150)
-
-                driver.execute_script(f"window.scrollBy(0, {scroll_by});")
-                current_position += scroll_by
-                scroll_count += 1
-
-                # Variable scroll speed
-                human_like_delay(0.3, 2.0)
-
-            # Scroll back to top sometimes
-            if random.random() < 0.3:
-                human_like_delay(1, 2)
-                driver.execute_script("window.scrollTo(0, 0);")
-
-        except Exception as e:
-            print(f"⚠️  Scrolling skipped: {str(e)}")
+        random_scroll(driver)
+        random_link_click(driver)
 
         print("✓ Page loaded successfully!")
         print(f"✓ Page title: {driver.title}")
@@ -340,5 +372,4 @@ if __name__ == "__main__":
     print("🚀 Starting Ultra-Stealth Browser Automation")
     print("=" * 60)
 
-    df = pd.read_csv("demo_scraping_sites.csv")
-    visit_multiple_sites(df['URL'].tolist())
+    visit_website('http://quotes.toscrape.com/')
