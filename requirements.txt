@@ -1,0 +1,10 @@
+# Core dependencies
+selenium>=4.15.0
+
+# Enhanced stealth libraries - REQUIRED for maximum undetectability
+undetected-chromedriver>=3.5.4  # Auto-patches ChromeDriver for better stealth
+selenium-stealth>=1.0.6  # Additional fingerprint masking
+fake-useragent>=1.4.0  # Dynamic user agent generation
+setuptools==80.9.0
+pandas==2.3.2
+PyQt6==6.6.1
