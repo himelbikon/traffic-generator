@@ -180,9 +180,17 @@ def create_undetectable_driver():
     return driver
 
 
-def human_like_delay(min_seconds=1, max_seconds=3):
+def human_like_delay(min_seconds=1, max_seconds=3, worker=None):
     """Add random delays to mimic human behavior"""
-    time.sleep(random.uniform(min_seconds, max_seconds))
+    delay_time = random.uniform(min_seconds, max_seconds)
+    if worker:
+        start_time = time.time()
+        while time.time() - start_time < delay_time:
+            if not worker.is_running:
+                return
+            time.sleep(0.1)
+    else:
+        time.sleep(delay_time)
 
 
 def random_mouse_movements(driver, max_size=500, steps_range=(5, 50), pause_range=(0.02, 0.1)):
@@ -252,8 +260,11 @@ def random_mouse_movements(driver, max_size=500, steps_range=(5, 50), pause_rang
         time.sleep(random.uniform(*pause_range))
 
 
-def random_link_click(driver):
+def random_link_click(driver, worker=None):
     for i in range(3):
+        if worker and not worker.is_running:
+            break
+
         print(f"Attempt {i + 1} to click a link...")
         try:
             anchors = driver.find_elements(By.TAG_NAME, "a")
@@ -266,7 +277,7 @@ def random_link_click(driver):
                 time.sleep(random.uniform(0.5, 1.5))  # human-like pause
                 link.click()
                 print("✓ Link clicked successfully!")
-                human_like_delay(2, 5)
+                human_like_delay(2, 5, worker=worker)
                 break
             else:
                 print("No good links found")
@@ -274,7 +285,7 @@ def random_link_click(driver):
             print(f"⚠️  Link click skipped: {str(e)}")
 
 
-def random_scroll(driver):
+def random_scroll(driver, worker=None):
     random_scroll_count = random.randint(5, 15)
     
     # Simulate human-like scrolling with variations
@@ -285,6 +296,9 @@ def random_scroll(driver):
         scroll_count = 0
 
         while current_position < scroll_height and scroll_count < random_scroll_count:
+            if worker and not worker.is_running:
+                break
+
             # Random scroll distance and direction
             scroll_by = random.randint(100, 400)
 
@@ -297,39 +311,57 @@ def random_scroll(driver):
             scroll_count += 1
 
             # Variable scroll speed
-            human_like_delay(0.3, 2.0)
+            human_like_delay(0.3, 2.0, worker=worker)
 
         # Scroll back to top sometimes
         if random.random() < 0.3:
-            human_like_delay(1, 2)
+            human_like_delay(1, 2, worker=worker)
             driver.execute_script("window.scrollTo(0, 0);")
 
     except Exception as e:
         print(f"⚠️  Scrolling skipped: {str(e)}")
 
 
-def visit_website(url):
+def visit_website(url, worker=None):
     """Visit a website with maximum stealth mode enabled"""
 
     print(f"\n🌐 Navigating to {url}...")
     driver = create_undetectable_driver()
 
     try:
+        if worker and not worker.is_running:
+            return
+            
         print(f"\n🌐 Navigating to {url}...")
         driver.get(url)
 
         # Random delay after loading
-        human_like_delay(2, 5)
+        human_like_delay(2, 5, worker=worker)
+
+        if worker and not worker.is_running:
+            return
 
         # Simulate mouse movements
         random_mouse_movements(driver)
 
+        if worker and not worker.is_running:
+            return
         
-        random_scroll(driver)
-        random_link_click(driver)
+        random_scroll(driver, worker=worker)
+        if worker and not worker.is_running:
+            return
 
-        random_scroll(driver)
-        random_link_click(driver)
+        random_link_click(driver, worker=worker)
+        if worker and not worker.is_running:
+            return
+
+        random_scroll(driver, worker=worker)
+        if worker and not worker.is_running:
+            return
+
+        random_link_click(driver, worker=worker)
+        if worker and not worker.is_running:
+            return
 
         print("✓ Page loaded successfully!")
         print(f"✓ Page title: {driver.title}")

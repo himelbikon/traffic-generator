@@ -86,7 +86,7 @@ class VisitWorker(QThread):
                     try:
                         self.status_update.emit(f"Visiting: {url}")
                         # This visit website function will automatically stores visited url. Do not need to store here.
-                        visit_website(url)
+                        visit_website(url, self)
                         # db.add_visit(url)
                         
                         # Update progress
@@ -295,7 +295,7 @@ class MainWindow(QMainWindow):
             
             if reply == QMessageBox.StandardButton.Yes:
                 self.worker.stop()
-                self.worker.wait()
+                # self.worker.wait()
                 event.accept()
             else:
                 event.ignore()
