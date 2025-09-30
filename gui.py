@@ -1,12 +1,11 @@
-import sys
 import time
 import random
 from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QFileDialog, QTableWidget, QTableWidgetItem, 
                              QSpinBox, QMessageBox)
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from PyQt6.QtCore import QThread, pyqtSignal
 import pandas as pd
 import db
 from visit_automation import visit_website
@@ -43,21 +42,23 @@ class VisitWorker(QThread):
             
             # Calculate sleep time
             sleep_time = 10 * 3600 / max(self.visits_per_day - 2, 2)
+            # sleep_time = 10
             doped_sleep_time = sleep_time + random.randint(-int(sleep_time * 0.2), int(sleep_time * 0.2))
             
-            hour = int(doped_sleep_time // 3600)
-            minute = int((doped_sleep_time % 3600) // 60)
-            
-            self.status_update.emit(f"Sleeping for {hour}h {minute}m")
-            
-            # Sleep in small intervals to check for pause/stop
-            sleep_intervals = int(doped_sleep_time / 0.5)
-            for _ in range(sleep_intervals):
-                if not self.is_running:
-                    break
+            remaining_time = int(doped_sleep_time)
+            while remaining_time > 0 and self.is_running:
                 while self.is_paused and self.is_running:
                     time.sleep(0.1)
-                time.sleep(0.5)
+
+                if not self.is_running:
+                    break
+
+                hour = remaining_time // 3600
+                minute = (remaining_time % 3600) // 60
+                second = (remaining_time % 3600) % 60
+                self.status_update.emit(f"Sleeping for {hour}h {minute}m {second}s")
+                time.sleep(1)
+                remaining_time -= 1
         
         self.finished.emit()
     

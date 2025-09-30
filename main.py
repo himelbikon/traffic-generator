@@ -1,15 +1,5 @@
 import sys
-import time
-import random
-from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QLabel, QLineEdit, 
-                             QFileDialog, QTableWidget, QTableWidgetItem, 
-                             QSpinBox, QMessageBox)
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
-import pandas as pd
-import db
-from visit_automation import visit_website
+from PyQt6.QtWidgets import QApplication
 from gui import MainWindow
 
 

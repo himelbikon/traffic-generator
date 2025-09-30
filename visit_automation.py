@@ -8,7 +8,6 @@ from fake_useragent import UserAgent
 from selenium.webdriver import ActionChains
 import time
 import random
-import pandas as pd
 import db
 
 # ============= PROXY CONFIGURATION =============
