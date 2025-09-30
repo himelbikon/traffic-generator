@@ -190,10 +190,10 @@ class CSVProcessorApp(QMainWindow):
             row_data: A pandas Series containing the row data
         """
         
-        # visit_website(row_data['URL'])
+        visit_website(row_data['URL'])
 
-        import time
-        time.sleep(1)
+        # import time
+        # time.sleep(1)
         
     def update_row_status(self, row_index):
         """Update the status indicator for a processed row"""
@@ -238,7 +238,7 @@ class CSVProcessorApp(QMainWindow):
         self.progress_bar.hide()
 
 
-def main():
+def render():
     app = QApplication(sys.argv)
     window = CSVProcessorApp()
     window.show()
@@ -246,4 +246,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    render()
