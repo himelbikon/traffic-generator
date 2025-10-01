@@ -115,6 +115,16 @@ class VisitWorker(QThread):
         if visits >= visits_target:
             self.status_update.emit(f"Already had enough visits ({visits}) for {url}")
             return True
+
+        last_visit_time = db.last_visit_time(url)
+        time_diff = datetime.now() - last_visit_time
+
+        wait_time = 10 * 3600 / visits_target
+
+        if time_diff < timedelta(seconds=wait_time):
+            self.status_update.emit(f"Not enough time has passed since last visit for {url}")
+            return True
+
         return False
     
     def stop(self):

@@ -182,8 +182,6 @@ def create_undetectable_driver():
         '''
     })
     print(f"✓ Browser initialized successfully!")
-    
-
     return driver
 
 

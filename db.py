@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 
 DB_JSON_PATH = 'db.json'
-
+TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 def load_db():
     if not os.path.exists(DB_JSON_PATH):
@@ -78,6 +78,13 @@ def count_visits(url):
     except Exception as e:
         print(f"Error occurred while counting visits: {str(e)}")
 
+def last_visit_time(url):
+    try:
+        _, url_data = get_url_data(url)
+        visits = url_data.get('visits', [])
+        return datetime.strptime(visits[-1], TIME_FORMAT)
+    except Exception as e:
+        print(f"Error occurred while getting last visit: {str(e)}")
 
 def count_visits_today(url):
     try:
