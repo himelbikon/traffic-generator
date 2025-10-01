@@ -45,6 +45,19 @@ WEBGL_RENDERERS = [
 ]
 
 
+import chrome_version
+
+def get_chrome_version():
+    try:
+        # Get the Chrome version using the chrome_version module
+        chrome_v = chrome_version.get_chrome_version()
+        major_version = int(chrome_v.split('.')[0])
+        return major_version
+    except Exception as e:
+        print(f"Error getting Chrome version: {e}")
+        return None
+
+
 def parse_proxy(proxy_string):
     """Parse proxy string into proper format"""
     if '://' in proxy_string:
@@ -110,8 +123,14 @@ def create_undetectable_driver(proxy=None):
     print(f"✓ Language: {languages[0]}")
     print(f"✓ WebGL Vendor: {webgl_vendor}")
 
+    chrome_version = get_chrome_version()
+    if chrome_version:
+        print(f"✓ Chrome Version: {chrome_version}")
+    else:
+        print("❌ Error getting Chrome version.")
+
     # Initialize undetected Chrome driver
-    driver = uc.Chrome(options=options, version_main=140)
+    driver = uc.Chrome(options=options, version_main=chrome_version)
 
     print(f"✓ Opened undetectable browser successfully!")
 
