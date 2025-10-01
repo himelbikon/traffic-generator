@@ -130,8 +130,15 @@ def create_undetectable_driver():
     # Initialize undetected Chrome driver
     driver = uc.Chrome(options=options, version_main=None)
 
+    # import time
+    # time.sleep(10000)
+
+    print(f"✓ Opened undetectable browser successfully!")
+
     driver.set_window_size(width, height)
     driver.set_window_position(0, 0)
+
+    print(f"✓ Size & Position set successfully!")
 
     # Apply selenium-stealth for additional masking
     stealth(driver,
@@ -142,6 +149,8 @@ def create_undetectable_driver():
             renderer=webgl_renderer,
             fix_hairline=True,
             )
+
+    print(f"✓ Browser stealth mode enabled successfully!")
 
     # Additional fingerprint randomization
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
@@ -175,6 +184,8 @@ def create_undetectable_driver():
             }};
         '''
     })
+    print(f"✓ Browser initialized successfully!")
+    
 
     return driver
 
@@ -324,8 +335,9 @@ def random_scroll(driver, worker=None):
 def visit_website(url, worker=None):
     """Visit a website with maximum stealth mode enabled"""
 
-    print(f"\n🌐 Navigating to {url}...")
+    print(f"\n🌐 Creating undetectable driver...")
     driver = create_undetectable_driver()
+    print(f"✓ Undetectable driver created successfully!")
 
     try:
         if worker and not worker.is_running:

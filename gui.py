@@ -84,6 +84,7 @@ class VisitWorker(QThread):
                 
                 # Try to visit (with retry logic)
                 for attempt in range(3):
+                    print(f'--> Attepting to visit {url} (Attempt {attempt + 1}/3)...')
                     try:
                         self.status_update.emit(f"Visiting: {url}")
                         # This visit website function will automatically stores visited url. Do not need to store here.
