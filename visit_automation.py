@@ -107,9 +107,10 @@ def create_undetectable_driver(proxy=None):
 
     # ============= PROXY SETUP =============
     if proxy:
-        proxy_url = parse_proxy(proxy)
+        proxy_to_use = random.choice(proxy) if isinstance(proxy, list) else proxy
+        proxy_url = parse_proxy(proxy_to_use)
         options.add_argument(f'--proxy-server={proxy_url}')
-        print(f"🔒 Using Proxy: {proxy.split(':')[0]}:****")
+        print(f"🔒 Using Proxy: {proxy_to_use.split(':')[0]}:****")
 
     # Set language preferences
     prefs = {

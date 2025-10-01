@@ -4,12 +4,37 @@ from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QFileDialog, QTableWidget, QTableWidgetItem, 
-                             QSpinBox, QMessageBox)
+                             QSpinBox, QMessageBox, QTextEdit)
 from PyQt6.QtCore import QThread, pyqtSignal
 import pandas as pd
 import db
 from visit_automation import visit_website
 from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox
+
+
+class ProxyDialog(QDialog):
+    def __init__(self, proxies, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Manage Proxies")
+        self.setMinimumSize(400, 300)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self.proxy_input = QTextEdit()
+        self.proxy_input.setPlaceholderText("IP:PORT or IP:PORT:USER:PASS\nEach proxy on a new line.")
+        self.proxy_input.setText("\n".join(proxies))
+        layout.addWidget(self.proxy_input)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def get_proxies(self):
+        proxies = self.proxy_input.toPlainText().split('\n')
+        return [p.strip() for p in proxies if p.strip()]
 
 
 
@@ -154,6 +179,7 @@ class MainWindow(QMainWindow):
         
         self.csv_path = ""
         self.worker = None
+        self.proxies = []
         
         self.init_ui()
         
@@ -177,10 +203,10 @@ class MainWindow(QMainWindow):
         
         # Proxy Section
         proxy_layout = QHBoxLayout()
-        proxy_layout.addWidget(QLabel("Proxy (optional):"))
-        self.proxy_input = QLineEdit()
-        self.proxy_input.setPlaceholderText("IP:PORT or IP:PORT:USER:PASS")
-        proxy_layout.addWidget(self.proxy_input)
+        proxy_layout.addWidget(QLabel("Proxies:"))
+        self.proxy_btn = QPushButton("Manage Proxies")
+        self.proxy_btn.clicked.connect(self.open_proxy_dialog)
+        proxy_layout.addWidget(self.proxy_btn)
         layout.addLayout(proxy_layout)
         
 
@@ -245,6 +271,12 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load data: {str(e)}")
     
+    def open_proxy_dialog(self):
+        """Open the proxy management dialog"""
+        dialog = ProxyDialog(self.proxies, self)
+        if dialog.exec():
+            self.proxies = dialog.get_proxies()
+
     def start_automation(self):
         """Start the automation process"""
         if not self.csv_path:
@@ -255,12 +287,9 @@ class MainWindow(QMainWindow):
         self.pause_btn.setEnabled(True)
         self.csv_btn.setEnabled(False)
 
-        proxy = self.proxy_input.text()
-        
-        # Create and start worker
         self.worker = VisitWorker(
             self.csv_path,
-            proxy=proxy
+            proxy=self.proxies
         )
         self.worker.progress_update.connect(self.update_table_row)
         self.worker.status_update.connect(self.update_status)
