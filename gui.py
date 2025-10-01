@@ -18,9 +18,10 @@ class VisitWorker(QThread):
     status_update = pyqtSignal(str)
     finished = pyqtSignal()
     
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, proxy=None):
         super().__init__()
         self.csv_path = csv_path
+        self.proxy = proxy
 
         self.is_running = True
         self.is_paused = False
@@ -81,7 +82,7 @@ class VisitWorker(QThread):
                     try:
                         self.status_update.emit(f"Visiting: {url}")
                         # This visit website function will automatically stores visited url. Do not need to store here.
-                        visit_website(url, self)
+                        visit_website(url, self, self.proxy)
                         # db.add_visit(url)
                         
                         # Update progress
@@ -118,13 +119,15 @@ class VisitWorker(QThread):
             return True
 
         last_visit_time = db.last_visit_time(url)
-        time_diff = datetime.now() - last_visit_time
 
-        wait_time = 10 * 3600 / visits_target
+        if last_visit_time:
+            time_diff = datetime.now() - last_visit_time
 
-        if time_diff < timedelta(seconds=wait_time):
-            self.status_update.emit(f"Not enough time has passed since last visit for {url}")
-            return True
+            wait_time = 10 * 3600 / visits_target
+
+            if time_diff < timedelta(seconds=wait_time):
+                self.status_update.emit(f"Not enough time has passed since last visit for {url}")
+                return True
 
         return False
     
@@ -169,6 +172,14 @@ class MainWindow(QMainWindow):
         self.csv_btn.clicked.connect(self.browse_csv)
         csv_layout.addWidget(self.csv_btn)
         layout.addLayout(csv_layout)
+        
+        # Proxy Section
+        proxy_layout = QHBoxLayout()
+        proxy_layout.addWidget(QLabel("Proxy (optional):"))
+        self.proxy_input = QLineEdit()
+        self.proxy_input.setPlaceholderText("IP:PORT or IP:PORT:USER:PASS")
+        proxy_layout.addWidget(self.proxy_input)
+        layout.addLayout(proxy_layout)
         
 
         
@@ -242,10 +253,12 @@ class MainWindow(QMainWindow):
         self.pause_btn.setEnabled(True)
         self.csv_btn.setEnabled(False)
 
+        proxy = self.proxy_input.text()
         
         # Create and start worker
         self.worker = VisitWorker(
-            self.csv_path
+            self.csv_path,
+            proxy=proxy
         )
         self.worker.progress_update.connect(self.update_table_row)
         self.worker.status_update.connect(self.update_status)

@@ -82,6 +82,10 @@ def last_visit_time(url):
     try:
         _, url_data = get_url_data(url)
         visits = url_data.get('visits', [])
+
+        if not visits:
+            return 
+
         return datetime.strptime(visits[-1], TIME_FORMAT)
     except Exception as e:
         print(f"Error occurred while getting last visit: {str(e)}")

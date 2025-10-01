@@ -10,22 +10,7 @@ import time
 import random
 import db
 
-# ============= PROXY CONFIGURATION =============
-# Add your proxies here in one of these formats:
-PROXIES = [
-    # Format 1: IP:PORT
-    # '123.45.67.89:8080',
 
-    # Format 2: IP:PORT:USERNAME:PASSWORD
-    # '123.45.67.89:8080:myuser:mypass',
-
-    # Format 3: Full URL
-    # 'http://myuser:mypass@123.45.67.89:8080',
-    # 'socks5://myuser:mypass@123.45.67.89:1080',
-]
-
-# Set to True to use proxies, False to disable
-USE_PROXY = False  # Change to True when you add proxies above
 
 # Screen resolutions (common realistic sizes)
 SCREEN_RESOLUTIONS = [
@@ -78,7 +63,7 @@ def parse_proxy(proxy_string):
         raise ValueError(f"Invalid proxy format: {proxy_string}")
 
 
-def create_undetectable_driver():
+def create_undetectable_driver(proxy=None):
     """Create an undetected Chrome driver with maximum stealth"""
 
     # Initialize fake user agent
@@ -108,12 +93,10 @@ def create_undetectable_driver():
     options.add_argument(f'--user-agent={user_agent}')
 
     # ============= PROXY SETUP =============
-    selected_proxy = None
-    if USE_PROXY and PROXIES:
-        selected_proxy = random.choice(PROXIES)
-        proxy_url = parse_proxy(selected_proxy)
+    if proxy:
+        proxy_url = parse_proxy(proxy)
         options.add_argument(f'--proxy-server={proxy_url}')
-        print(f"🔒 Using Proxy: {selected_proxy.split(':')[0]}:****")
+        print(f"🔒 Using Proxy: {proxy.split(':')[0]}:****")
 
     # Set language preferences
     prefs = {
@@ -327,11 +310,11 @@ def random_scroll(driver, worker=None):
         print(f"⚠️  Scrolling skipped: {str(e)}")
 
 
-def visit_website(url, worker=None):
+def visit_website(url, worker=None, proxy=None):
     """Visit a website with maximum stealth mode enabled"""
 
     print(f"\n🌐 Creating undetectable driver...")
-    driver = create_undetectable_driver()
+    driver = create_undetectable_driver(proxy=proxy)
     print(f"✓ Undetectable driver created successfully!")
 
     try:

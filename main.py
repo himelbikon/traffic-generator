@@ -13,4 +13,4 @@ if __name__ == "__main__":
     main()
 
 
-# pyinstaller --onefile --windowed main.py
+# pyinstaller --onefile --collect-all fake_useragent main.py
