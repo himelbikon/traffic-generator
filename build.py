@@ -7,7 +7,7 @@ logo = Image.open(logo_path)
 logo.save(logo_ico_path, format="ICO")
 
 command = f"""pyinstaller --onefile ^
-  --name "Traffic Generator v0.4" ^
+  --name "Traffic Generator v0.5" ^
   --collect-all fake_useragent --windowed ^
   --add-data "C:/Users/himel/Desktop/Projects/Nick Production/Traffic Generator/venv/Lib/site-packages/selenium_stealth;selenium_stealth" ^
   --icon="{logo_ico_path}" ^

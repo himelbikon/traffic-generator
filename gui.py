@@ -309,6 +309,7 @@ class MainWindow(QMainWindow):
     def continue_automation(self):
         """Continue the automation"""
         if self.worker:
+            self.worker.proxy = self.proxies
             self.worker.resume()
             self.pause_btn.setEnabled(True)
             self.continue_btn.setEnabled(False)
