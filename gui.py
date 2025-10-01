@@ -9,6 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import pandas as pd
 import db
 from visit_automation import visit_website
+from PyQt6.QtGui import QIcon
 
 
 
@@ -147,7 +148,8 @@ class VisitWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("URL Visit Automation")
+        self.setWindowTitle("Traffic Generator")
+        self.setWindowIcon(QIcon("assets/logo.ico"))
         self.setMinimumSize(800, 600)
         
         self.csv_path = ""

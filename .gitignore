@@ -6,3 +6,4 @@ build
 dev
 db.json
 *.exe
+*.spec

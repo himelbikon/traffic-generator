@@ -1,3 +1,4 @@
+import chrome_version
 from selenium.common.exceptions import MoveTargetOutOfBoundsException, WebDriverException
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -45,7 +46,6 @@ WEBGL_RENDERERS = [
 ]
 
 
-import chrome_version
 
 def get_chrome_version():
     try:
