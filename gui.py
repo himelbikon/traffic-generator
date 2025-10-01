@@ -1,6 +1,6 @@
 import time
-import random
 from pathlib import Path
+from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QFileDialog, QTableWidget, QTableWidgetItem, 
@@ -27,6 +27,7 @@ class VisitWorker(QThread):
         
     def run(self):
         """Main worker loop"""
+
         while self.is_running:
             # Check if paused
             while self.is_paused and self.is_running:
@@ -35,11 +36,7 @@ class VisitWorker(QThread):
             if not self.is_running:
                 break
                 
-            all_sites_visited = self.visit_all_sites()
-            
-            if all_sites_visited:
-                self.status_update.emit("All sites have enough visits for today")
-                break
+            self.visit_all_sites()
             
             # Calculate sleep time
             sleep_time = 5
@@ -54,10 +51,7 @@ class VisitWorker(QThread):
                 if not self.is_running:
                     break
 
-                hour = remaining_time // 3600
-                minute = (remaining_time % 3600) // 60
-                second = (remaining_time % 3600) % 60
-                self.status_update.emit(f"Sleeping for {hour}h {minute}m {second}s")
+                self.status_update.emit("💤 Taking a short break... planning the next visit.")
                 time.sleep(1)
                 remaining_time -= 1
         
@@ -67,7 +61,6 @@ class VisitWorker(QThread):
         """Visit all sites from CSV"""
         try:
             df = pd.read_csv(self.csv_path, encoding='latin-1')
-            all_site_visited = True
             
             for index, row in df.iterrows():
                 if not self.is_running:
@@ -79,10 +72,8 @@ class VisitWorker(QThread):
                 url = row['URL']
                 visits_target = row['Visits Target']
                 
-                if self.had_enough_visits(url, visits_target):
+                if self.should_avoid_visit(url, visits_target):
                     continue
-                
-                all_site_visited = False
                 
                 # Try to visit (with retry logic)
                 for attempt in range(3):
@@ -103,14 +94,24 @@ class VisitWorker(QThread):
                             self.status_update.emit(f"Failed to visit {url} after 3 attempts")
                         print(f"❌ Error visiting {url}: {str(e)}")
             
-            return all_site_visited
+            return
         except Exception as e:
             self.status_update.emit(f"Error reading CSV: {str(e)}")
             print(f"❌ Error reading CSV: {str(e)}")
             return True
     
-    def had_enough_visits(self, url, visits_target):
-        """Check if URL has enough visits today"""
+    def should_avoid_visit(self, url, visits_target):
+        """
+        Check if we should avoid visiting a website due to enough visits or time since last visit.
+
+        Args:
+            url (str): URL of the website
+            visits_target (int): Target number of visits for the website
+
+        Returns:
+            bool: True if we should avoid visiting the website, False otherwise
+        """
+
         visits = db.count_visits_today(url)
         if visits >= visits_target:
             self.status_update.emit(f"Already had enough visits ({visits}) for {url}")
