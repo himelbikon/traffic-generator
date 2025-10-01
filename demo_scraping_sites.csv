@@ -1,4 +1,4 @@
-Name,URL
-Books to Scrape,http://books.toscrape.com/
-Quotes to Scrape,http://quotes.toscrape.com/
-OpenWeatherMap API,https://openweathermap.org/api
+Name,URL,Visit Target
+Books to Scrape,http://books.toscrape.com/,20
+Quotes to Scrape,http://quotes.toscrape.com/,40
+OpenWeatherMap API,https://openweathermap.org/api,5

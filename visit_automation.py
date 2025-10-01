@@ -128,10 +128,7 @@ def create_undetectable_driver():
     print(f"✓ WebGL Vendor: {webgl_vendor}")
 
     # Initialize undetected Chrome driver
-    driver = uc.Chrome(options=options, version_main=None)
-
-    # import time
-    # time.sleep(10000)
+    driver = uc.Chrome(options=options, version_main=140)
 
     print(f"✓ Opened undetectable browser successfully!")
 

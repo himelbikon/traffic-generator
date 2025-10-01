@@ -11,6 +11,7 @@ import db
 from visit_automation import visit_website
 
 
+
 class VisitWorker(QThread):
     """Worker thread to handle URL visits without blocking the GUI"""
     progress_update = pyqtSignal(str, int)  # url, visit_count
@@ -41,9 +42,9 @@ class VisitWorker(QThread):
                 break
             
             # Calculate sleep time
-            sleep_time = 10 * 3600 / max(self.visits_per_day - 2, 2)
+            sleep_time = 5
             # sleep_time = 10
-            doped_sleep_time = sleep_time + random.randint(-int(sleep_time * 0.2), int(sleep_time * 0.2))
+            doped_sleep_time = sleep_time
             
             remaining_time = int(doped_sleep_time)
             while remaining_time > 0 and self.is_running:
@@ -99,10 +100,12 @@ class VisitWorker(QThread):
                         self.status_update.emit(f"Error visiting {url}: {str(e)}")
                         if attempt == 2:
                             self.status_update.emit(f"Failed to visit {url} after 3 attempts")
+                        print(f"❌ Error visiting {url}: {str(e)}")
             
             return all_site_visited
         except Exception as e:
             self.status_update.emit(f"Error reading CSV: {str(e)}")
+            print(f"❌ Error reading CSV: {str(e)}")
             return True
     
     def had_enough_visits(self, url):
