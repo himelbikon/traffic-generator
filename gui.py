@@ -18,10 +18,10 @@ class VisitWorker(QThread):
     status_update = pyqtSignal(str)
     finished = pyqtSignal()
     
-    def __init__(self, csv_path, visits_per_day):
+    def __init__(self, csv_path):
         super().__init__()
         self.csv_path = csv_path
-        self.visits_per_day = visits_per_day
+
         self.is_running = True
         self.is_paused = False
         
@@ -66,7 +66,7 @@ class VisitWorker(QThread):
     def visit_all_sites(self):
         """Visit all sites from CSV"""
         try:
-            df = pd.read_csv(self.csv_path)
+            df = pd.read_csv(self.csv_path, encoding='latin-1')
             all_site_visited = True
             
             for index, row in df.iterrows():
@@ -77,8 +77,9 @@ class VisitWorker(QThread):
                     time.sleep(0.1)
                 
                 url = row['URL']
+                visits_target = row['Visits Target']
                 
-                if self.had_enough_visits(url):
+                if self.had_enough_visits(url, visits_target):
                     continue
                 
                 all_site_visited = False
@@ -108,10 +109,10 @@ class VisitWorker(QThread):
             print(f"❌ Error reading CSV: {str(e)}")
             return True
     
-    def had_enough_visits(self, url):
+    def had_enough_visits(self, url, visits_target):
         """Check if URL has enough visits today"""
         visits = db.count_visits_today(url)
-        if visits >= self.visits_per_day:
+        if visits >= visits_target:
             self.status_update.emit(f"Already had enough visits ({visits}) for {url}")
             return True
         return False
@@ -158,16 +159,7 @@ class MainWindow(QMainWindow):
         csv_layout.addWidget(self.csv_btn)
         layout.addLayout(csv_layout)
         
-        # Visits Per Day Section
-        visits_layout = QHBoxLayout()
-        visits_layout.addWidget(QLabel("Visits Per Day:"))
-        self.visits_spinbox = QSpinBox()
-        self.visits_spinbox.setMinimum(1)
-        self.visits_spinbox.setMaximum(1000)
-        self.visits_spinbox.setValue(20)
-        visits_layout.addWidget(self.visits_spinbox)
-        visits_layout.addStretch()
-        layout.addLayout(visits_layout)
+
         
         # Control Buttons
         button_layout = QHBoxLayout()
@@ -195,8 +187,8 @@ class MainWindow(QMainWindow):
         # Visit Count Table
         layout.addWidget(QLabel("Today's Visit Counts:"))
         self.table = QTableWidget()
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["URL", "Visits Today"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["URL", "Visits Target", "Visits Today"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setColumnWidth(0, 500)
         layout.addWidget(self.table)
@@ -214,16 +206,17 @@ class MainWindow(QMainWindow):
     def load_initial_data(self):
         """Load initial visit counts from db.json"""
         try:
-            # Load CSV
-            df = pd.read_csv(self.csv_path)
+            df = pd.read_csv(self.csv_path, encoding='latin-1')
             
             # Update table with current visit counts
             self.table.setRowCount(len(df))
             for i, row in df.iterrows():
                 url = row['URL']
+                visits_target = row['Visits Target']
                 self.table.setItem(i, 0, QTableWidgetItem(url))
+                self.table.setItem(i, 1, QTableWidgetItem(str(visits_target)))
                 count = db.count_visits_today(url)
-                self.table.setItem(i, 1, QTableWidgetItem(str(count)))
+                self.table.setItem(i, 2, QTableWidgetItem(str(count)))
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load data: {str(e)}")
@@ -237,12 +230,11 @@ class MainWindow(QMainWindow):
         self.start_btn.setEnabled(False)
         self.pause_btn.setEnabled(True)
         self.csv_btn.setEnabled(False)
-        self.visits_spinbox.setEnabled(False)
+
         
         # Create and start worker
         self.worker = VisitWorker(
-            self.csv_path, 
-            self.visits_spinbox.value()
+            self.csv_path
         )
         self.worker.progress_update.connect(self.update_table_row)
         self.worker.status_update.connect(self.update_status)
@@ -271,7 +263,7 @@ class MainWindow(QMainWindow):
         """Update a specific row in the table"""
         for i in range(self.table.rowCount()):
             if self.table.item(i, 0).text() == url:
-                self.table.setItem(i, 1, QTableWidgetItem(str(count)))
+                self.table.setItem(i, 2, QTableWidgetItem(str(count)))
                 break
     
     def update_status(self, message):
@@ -284,7 +276,7 @@ class MainWindow(QMainWindow):
         self.pause_btn.setEnabled(False)
         self.continue_btn.setEnabled(False)
         self.csv_btn.setEnabled(True)
-        self.visits_spinbox.setEnabled(True)
+
         self.status_label.setText("Automation completed")
         
         QMessageBox.information(self, "Complete", "Automation has finished")
